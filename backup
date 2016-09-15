@@ -1,0 +1,47 @@
+#!/bin/bash
+#This script uses tar and gzip to backup the /home directory to /backup
+#Backups will be written in the format home_backup_<date>.tar.gz
+#Date format is <year><month><day> for easy sorting
+#After writing the backup the script tests that backup
+#Then it will check how much space remains in /backup/ and if that remaining space is less than
+#three times the size of the most recent backup, it removes the oldest backup
+
+#User configured settings.
+BSOURCE="/home"
+BTARGET="/backup"
+BNAME="home_backup_"
+MAILTO="eskelton@liquidweb.com"
+LOGDIR="/root/log"
+
+#Internal variables
+BEXT=".tar.gz"
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+NDATE=`date +%Y%m%d`
+CNAME=`hostname --fqdn`
+
+#Do the backup
+echo "Running backup: tar -pczf ${BTARGET}/${BNAME}${NDATE}${BEXT} ${BSOURCE}" >> ${LOGDIR}/${BNAME}${NDATE}.log
+tar -pczf ${BTARGET}/${BNAME}${NDATE}${BEXT} ${BSOURCE}
+
+#Test the backup
+if ! tar -tf ${BTARGET}/${BNAME}${NDATE}${BEXT}; then
+	echo "Your automated backup of ${BSOURCE} has failed." | \
+	mail -s "${CNAME} backup failed" ${MAILTO}
+	#Backup is bad. Just quit.
+	echo "Backup test failed. Sending email to ${MAILTO}" >> ${LOGDIR}/${BNAME}${NDATE}.log
+	exit
+fi
+
+#Check how full the $BTARGET is
+BSIZE=`du ${BTARGET}/${BNAME}${NDATE}${BEXT} | awk '{print $1}'`
+BFSFREE=`df -P ${BTARGET} | awk '{print $4}'| tail -n1`
+echo "Backup size: ${BSIZE}" >> ${LOGDIR}/${BNAME}${NDATE}.log
+echo "Filesystem free space: ${BFSFREE}" >> ${LOGDIR}/${BNAME}${NDATE}.log
+while [ "$((${BSIZE} * 3))" -gt ${BFSFREE} ]
+do
+	#Backup filesystem is getting full. Need to prune oldest backup(s)
+	echo "Pruing backup ${BTARGET}/`ls -1 ${BTARGET} | head -n1`" >> ${LOGDIR}/${BNAME}${NDATE}.log
+	rm -f ${BTARGET}/`ls -1 ${BTARGET} | head -n1`
+	BFSFREE=`df -P ${BTARGET} | awk '{print $4}'| tail -n1`
+done
+
