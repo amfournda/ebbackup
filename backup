@@ -10,7 +10,7 @@
 BSOURCE="/home"
 BTARGET="/backup"
 BNAME="home_backup_"
-MAILTO="eskelton@liquidweb.com"
+MAILTO="email@youremail.tld"
 LOGDIR="/root/log"
 
 #Internal variables
@@ -40,8 +40,11 @@ echo "Filesystem free space: ${BFSFREE}" >> ${LOGDIR}/${BNAME}${NDATE}.log
 while [ "$((${BSIZE} * 3))" -gt ${BFSFREE} ]
 do
 	#Backup filesystem is getting full. Need to prune oldest backup(s)
-	echo "Pruing backup ${BTARGET}/`ls -1 ${BTARGET} | head -n1`" >> ${LOGDIR}/${BNAME}${NDATE}.log
-	rm -f ${BTARGET}/`ls -1 ${BTARGET} | head -n1`
+	NAMEPRUNE=`ls -1 ${BTARGET} | head -n1 | sed 's/^home_backup_//' | sed 's/\.tar\.gz$//'`
+	echo "Pruing backup ${BTARGET}/${BNAME}${NAMEPRUNE}${BEXT}" >> ${LOGDIR}/${BNAME}${NDATE}.log
+	rm -f ${BTARGET}/${BNAME}${NAMEPRUNE}${BEXT}
+	#Also remove old log file
+	rm -f ${LOGDIR}/${BNAME}${NAMEPRUNE}.log
 	BFSFREE=`df -P ${BTARGET} | awk '{print $4}'| tail -n1`
 done
 
